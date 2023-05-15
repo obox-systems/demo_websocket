@@ -2,6 +2,8 @@
 
 This demo serves as a websocket server that supports high amounts of concurrent connections and allows clients broadcast messages to every other client connected.
 
+![GIF demo](/demo/recording.gif?raw=true "Websocket connection")
+
 ## Try it out!
 Install [Rust](https://rustup.rs/) and run:
 ```
