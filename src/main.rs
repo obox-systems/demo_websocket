@@ -1,7 +1,17 @@
-use std::{net::SocketAddr, collections::HashMap, sync::Arc};
+#![warn(rust_2018_idioms)]
+#![warn(missing_debug_implementations)]
+#![warn(missing_docs)]
 
-use futures::{StreamExt, TryStreamExt, channel::mpsc::{UnboundedSender, unbounded}, future, SinkExt};
-use tokio::{net::TcpListener, sync::{Mutex, }};
+//! This demo serves as a websocket server that supports high amounts of concurrent
+//! connections and allows clients broadcast messages to every other client connected.
+
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
+
+use futures::{
+  channel::mpsc::{unbounded, UnboundedSender},
+  future, SinkExt, StreamExt, TryStreamExt,
+};
+use tokio::{net::TcpListener, sync::Mutex};
 use tokio_tungstenite::{accept_async, tungstenite::Message};
 
 type Tx = UnboundedSender<Message>;
@@ -10,7 +20,8 @@ type PeerMap = Arc<Mutex<HashMap<SocketAddr, Tx>>>;
 #[tokio::main]
 async fn main() {
   let bind_addr = "127.0.0.1:9090";
-  let listener =  TcpListener::bind(bind_addr).await
+  let listener = TcpListener::bind(bind_addr)
+    .await
     .expect(format!("Failed to bind the websocket at {}", bind_addr).as_str());
   println!("Listening at {}", bind_addr);
 
@@ -24,7 +35,7 @@ async fn main() {
         println!("Client connected: {addr}");
         peer_map.lock().await.insert(addr, tx);
 
-        let (outgoing, incoming) =  ws.split();
+        let (outgoing, incoming) = ws.split();
 
         let peer_map_inner = peer_map.clone();
         let broadcast_future = incoming.try_for_each_concurrent(None, |msg| async {
@@ -32,10 +43,10 @@ async fn main() {
           println!("Received message\n```\n{msg}```\nFrom {addr}");
           let peers = peer_map_inner.lock().await;
 
-          let clients = peers.iter()
-            .filter(|(peer_addr, _)| 
-              peer_addr != &&addr
-            ).map(|(_, ws_sink)| ws_sink);
+          let clients = peers
+            .iter()
+            .filter(|(peer_addr, _)| peer_addr != &&addr)
+            .map(|(_, ws_sink)| ws_sink);
           for mut client in clients {
             client.send(msg.clone()).await.unwrap();
           }
